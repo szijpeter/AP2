@@ -59,6 +59,7 @@ Below is a list of partners who are part of the AP2 community and are helping bu
 - [JusPay](https://juspay.in/)
 - [Kaia Network](https://kaia.network/)
 - [KCP (Korea Cyber Payment)](https://kcp.co.kr/)
+- [Kite AI](https://gokite.ai/)
 - [Klarna](https://www.klarna.com/)
 - [Lazada](https://www.lazada.com/)
 - [Lightspark](https://www.lightspark.com/)
