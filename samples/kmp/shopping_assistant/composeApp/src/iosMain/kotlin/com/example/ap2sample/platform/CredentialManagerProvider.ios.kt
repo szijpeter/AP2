@@ -13,19 +13,35 @@
  */
 package com.example.ap2sample.platform
 
-/**
- * iOS stub for CredentialManagerProvider.
- *
- * Digital Payment Credentials (DPC) are not yet supported on iOS. This placeholder always returns a
- * failure indicating the feature is unavailable.
- */
+import com.example.ap2sample.platform.acquirer.SharedOpenId4VpDcApiAcquirer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+
+/** iOS placeholder for CredentialManagerProvider using A-SIT Plus VCK. */
 actual class CredentialManagerProvider {
     actual suspend fun getDigitalCredential(requestJson: String): Result<String> {
-        return Result.failure(
-                UnsupportedOperationException(
-                        "Digital Payment Credentials (DPC) are not yet supported on iOS. " +
-                                "This is a placeholder implementation."
-                )
-        )
+        return try {
+            val jsonFromMerchant = Json.parseToJsonElement(requestJson) as JsonObject
+            val protocol = jsonFromMerchant["protocol"]?.jsonPrimitive?.contentOrNull
+
+            PlatformLogger.i("CredentialManager", "iOS DPC flow triggered for protocol $protocol.")
+
+            // Delegate acquisition to the shared a-sit-plus OpenID4VP/DCAPI implementation
+            PlatformLogger.i(
+                    "CredentialManager",
+                    "Delegating to SharedOpenId4VpDcApiAcquirer for iOS."
+            )
+
+            SharedOpenId4VpDcApiAcquirer.acquire(requestJson)
+        } catch (e: Exception) {
+            PlatformLogger.e(
+                    "CredentialManager",
+                    "Failed to process OpenID4VP request on iOS via Shared Acquirer",
+                    e
+            )
+            Result.failure(e)
+        }
     }
 }

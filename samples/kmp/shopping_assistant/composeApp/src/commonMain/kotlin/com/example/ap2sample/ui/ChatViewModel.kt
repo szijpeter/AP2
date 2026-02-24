@@ -39,172 +39,326 @@ data class ChatUiState(
 
 class ChatViewModel(
         apiKey: String,
-        credentialManagerProvider: CredentialManagerProvider,
+        private val credentialManagerProvider: CredentialManagerProvider,
 ) : ViewModel() {
 
-    private val repository = ChatRepository(apiKey, credentialManagerProvider)
-    private val settings = Settings()
+        private val repository = ChatRepository(apiKey, credentialManagerProvider)
+        private val settings = Settings()
 
-    private val _uiState = MutableStateFlow(ChatUiState())
-    val uiState = _uiState.asStateFlow()
+        private val _uiState = MutableStateFlow(ChatUiState())
+        val uiState = _uiState.asStateFlow()
 
-    private val _agentCardUrl = MutableStateFlow("")
-    val agentCardUrl = _agentCardUrl.asStateFlow()
+        private val _agentCardUrl = MutableStateFlow("")
+        val agentCardUrl = _agentCardUrl.asStateFlow()
 
-    init {
-        PlatformLogger.i(TAG, "ChatViewModel initialized.")
-        _uiState.update {
-            it.copy(
-                    messages =
-                            listOf(
-                                    ChatMessage(
-                                            id = randomUuid(),
-                                            text =
-                                                    "Hello! I'm your shopping assistant. How can I help you today? Try asking 'I want to buy some shoes'.",
-                                            sender = SenderRole.GEMINI,
-                                            timestamp = currentTimeMillis(),
-                                    )
-                            )
-            )
+        init {
+                PlatformLogger.i(TAG, "ChatViewModel initialized.")
+                _uiState.update {
+                        it.copy(
+                                messages =
+                                        listOf(
+                                                ChatMessage(
+                                                        id = randomUuid(),
+                                                        text =
+                                                                "Hello! I'm your shopping assistant. How can I help you today? Try asking 'I want to buy some shoes'.",
+                                                        sender = SenderRole.GEMINI,
+                                                        timestamp = currentTimeMillis(),
+                                                )
+                                        )
+                        )
+                }
+
+                // Load saved URL and initialize
+                viewModelScope.launch {
+                        val url = settings.getStringOrNull(AGENT_CARD_URL_KEY) ?: ""
+                        PlatformLogger.d(TAG, "Settings loaded URL: $url")
+                        _agentCardUrl.value = url
+
+                        if (url.isNotBlank()) {
+                                PlatformLogger.d(
+                                        TAG,
+                                        "ViewModel launching repository initialization from URL: $url"
+                                )
+                                repository
+                                        .initialize(url)
+                                        .onFailure { error ->
+                                                PlatformLogger.w(
+                                                        TAG,
+                                                        "Repository initialization failed: ${error.message}"
+                                                )
+                                                val errorMessage =
+                                                        ChatMessage(
+                                                                id = randomUuid(),
+                                                                text =
+                                                                        "Failed to connect to agent. Please check the URL and your network connection.",
+                                                                sender = SenderRole.GEMINI,
+                                                                timestamp = currentTimeMillis(),
+                                                        )
+                                                _uiState.update {
+                                                        it.copy(
+                                                                messages =
+                                                                        it.messages + errorMessage
+                                                        )
+                                                }
+                                        }
+                                        .onSuccess {
+                                                PlatformLogger.i(
+                                                        TAG,
+                                                        "Repository initialization successful."
+                                                )
+                                                val successMessage =
+                                                        ChatMessage(
+                                                                id = randomUuid(),
+                                                                text =
+                                                                        "Successfully connected to the agent.",
+                                                                sender = SenderRole.GEMINI,
+                                                                timestamp = currentTimeMillis(),
+                                                        )
+                                                _uiState.update {
+                                                        it.copy(
+                                                                messages =
+                                                                        it.messages + successMessage
+                                                        )
+                                                }
+                                        }
+                        } else {
+                                PlatformLogger.d(TAG, "Agent card URL is blank.")
+                                val noteMessage =
+                                        ChatMessage(
+                                                id = randomUuid(),
+                                                text =
+                                                        "Note: Agent card URL is not set. Please configure it in the settings.",
+                                                sender = SenderRole.GEMINI,
+                                                timestamp = currentTimeMillis(),
+                                        )
+                                _uiState.update { it.copy(messages = it.messages + noteMessage) }
+                        }
+                }
         }
 
-        // Load saved URL and initialize
-        viewModelScope.launch {
-            val url = settings.getStringOrNull(AGENT_CARD_URL_KEY) ?: ""
-            PlatformLogger.d(TAG, "Settings loaded URL: $url")
-            _agentCardUrl.value = url
+        fun setAgentCardUrl(url: String) {
+                PlatformLogger.d(TAG, "setAgentCardUrl called with url: $url")
+                settings.putString(AGENT_CARD_URL_KEY, url)
+                _agentCardUrl.value = url
 
-            if (url.isNotBlank()) {
-                PlatformLogger.d(
-                        TAG,
-                        "ViewModel launching repository initialization from URL: $url"
-                )
-                repository
-                        .initialize(url)
-                        .onFailure { error ->
-                            PlatformLogger.w(
-                                    TAG,
-                                    "Repository initialization failed: ${error.message}"
-                            )
-                            val errorMessage =
-                                    ChatMessage(
-                                            id = randomUuid(),
-                                            text =
-                                                    "Failed to connect to agent. Please check the URL and your network connection.",
-                                            sender = SenderRole.GEMINI,
-                                            timestamp = currentTimeMillis(),
-                                    )
-                            _uiState.update { it.copy(messages = it.messages + errorMessage) }
+                // Re-initialize with the new URL
+                if (url.isNotBlank()) {
+                        viewModelScope.launch {
+                                repository
+                                        .initialize(url)
+                                        .onFailure { error ->
+                                                val errorMessage =
+                                                        ChatMessage(
+                                                                id = randomUuid(),
+                                                                text =
+                                                                        "Failed to connect to agent: ${error.message}",
+                                                                sender = SenderRole.GEMINI,
+                                                                timestamp = currentTimeMillis(),
+                                                        )
+                                                _uiState.update {
+                                                        it.copy(
+                                                                messages =
+                                                                        it.messages + errorMessage
+                                                        )
+                                                }
+                                        }
+                                        .onSuccess {
+                                                val successMessage =
+                                                        ChatMessage(
+                                                                id = randomUuid(),
+                                                                text =
+                                                                        "Successfully connected to the agent.",
+                                                                sender = SenderRole.GEMINI,
+                                                                timestamp = currentTimeMillis(),
+                                                        )
+                                                _uiState.update {
+                                                        it.copy(
+                                                                messages =
+                                                                        it.messages + successMessage
+                                                        )
+                                                }
+                                        }
                         }
-                        .onSuccess {
-                            PlatformLogger.i(TAG, "Repository initialization successful.")
-                            val successMessage =
-                                    ChatMessage(
-                                            id = randomUuid(),
-                                            text = "Successfully connected to the agent.",
-                                            sender = SenderRole.GEMINI,
-                                            timestamp = currentTimeMillis(),
-                                    )
-                            _uiState.update { it.copy(messages = it.messages + successMessage) }
-                        }
-            } else {
-                PlatformLogger.d(TAG, "Agent card URL is blank.")
-                val noteMessage =
+                }
+        }
+
+        fun sendMessage(userMessage: String) {
+                PlatformLogger.d(TAG, "sendMessage called with message: $userMessage")
+                if (userMessage.isBlank()) {
+                        PlatformLogger.d(TAG, "User message is blank, ignoring.")
+                        return
+                }
+
+                val userChatMessage =
                         ChatMessage(
                                 id = randomUuid(),
-                                text =
-                                        "Note: Agent card URL is not set. Please configure it in the settings.",
-                                sender = SenderRole.GEMINI,
+                                text = userMessage,
+                                sender = SenderRole.USER,
                                 timestamp = currentTimeMillis(),
                         )
-                _uiState.update { it.copy(messages = it.messages + noteMessage) }
-            }
+                _uiState.update {
+                        it.copy(messages = it.messages + userChatMessage, isLoading = true)
+                }
+
+                viewModelScope.launch {
+                        val result =
+                                repository.getResponse(userMessage) { newStatus ->
+                                        _uiState.update { it.copy(statusText = newStatus) }
+                                }
+
+                        result
+                                .onSuccess { responseText ->
+                                        PlatformLogger.d(
+                                                TAG,
+                                                "Repository returned success: '$responseText'"
+                                        )
+                                        val geminiMessage =
+                                                ChatMessage(
+                                                        id = randomUuid(),
+                                                        text = responseText,
+                                                        sender = SenderRole.GEMINI,
+                                                        timestamp = currentTimeMillis(),
+                                                )
+                                        _uiState.update {
+                                                it.copy(
+                                                        messages = it.messages + geminiMessage,
+                                                        isLoading = false
+                                                )
+                                        }
+                                }
+                                .onFailure {
+                                        PlatformLogger.e(TAG, "Repository returned failure", it)
+                                        val errorMessage =
+                                                ChatMessage(
+                                                        id = randomUuid(),
+                                                        text =
+                                                                "Sorry, an error occurred: ${it.message}",
+                                                        sender = SenderRole.GEMINI,
+                                                        timestamp = currentTimeMillis(),
+                                                )
+                                        _uiState.update {
+                                                it.copy(
+                                                        messages = it.messages + errorMessage,
+                                                        isLoading = false
+                                                )
+                                        }
+                                }
+                }
         }
-    }
+        fun triggerDebugCheckout() {
+                PlatformLogger.d(TAG, "Triggering debug DCAPI checkout flow directly")
+                _uiState.update {
+                        it.copy(isLoading = true, statusText = "Launching Debug Checkout...")
+                }
 
-    fun setAgentCardUrl(url: String) {
-        PlatformLogger.d(TAG, "setAgentCardUrl called with url: $url")
-        settings.putString(AGENT_CARD_URL_KEY, url)
-        _agentCardUrl.value = url
+                viewModelScope.launch {
+                        try {
+                                // 1. Create a mock CartMandate
+                                val amount = com.example.ap2sample.ap2.model.Amount("USD", 42.99)
+                                val displayItem =
+                                        com.example.ap2sample.ap2.model.DisplayItem(
+                                                label = "Debug Magic Shoes",
+                                                amount = amount
+                                        )
+                                val paymentDetails =
+                                        com.example.ap2sample.ap2.model.PaymentDetails(
+                                                id = "debug-order-1",
+                                                displayItems = listOf(displayItem),
+                                                total = displayItem
+                                        )
+                                val paymentOptions =
+                                        com.example.ap2sample.ap2.model.PaymentOptions(
+                                                requestPayerName = true,
+                                                requestPayerEmail = true,
+                                                requestPayerPhone = true,
+                                                requestShipping = true
+                                        )
+                                val requestDetails =
+                                        com.example.ap2sample.ap2.model.PaymentRequestDetails(
+                                                methodData = emptyList(),
+                                                details = paymentDetails,
+                                                options = paymentOptions
+                                        )
 
-        // Re-initialize with the new URL
-        if (url.isNotBlank()) {
-            viewModelScope.launch {
-                repository
-                        .initialize(url)
-                        .onFailure { error ->
-                            val errorMessage =
-                                    ChatMessage(
-                                            id = randomUuid(),
-                                            text = "Failed to connect to agent: ${error.message}",
-                                            sender = SenderRole.GEMINI,
-                                            timestamp = currentTimeMillis(),
-                                    )
-                            _uiState.update { it.copy(messages = it.messages + errorMessage) }
+                                val cartContents =
+                                        com.example.ap2sample.ap2.model.CartContents(
+                                                id = "debug-cart-1",
+                                                userCartConfirmationRequired = false,
+                                                paymentRequest = requestDetails,
+                                                cartExpiry = "2099-12-31T23:59:59Z",
+                                                merchantName = "Test Demo Store"
+                                        )
+                                val mockCart =
+                                        com.example.ap2sample.ap2.model.CartMandate(
+                                                contents = cartContents,
+                                                merchantAuthorization = null
+                                        )
+
+                                // 2. Generate the DPC OpenID4VP Request JSON
+                                val dpcRequestJson =
+                                        com.example.ap2sample.ap2.dpc.constructDPCRequest(
+                                                mockCart,
+                                                "Test Demo Store"
+                                        )
+
+                                // 3. Invoke credential manager directly
+                                val tokenResult =
+                                        credentialManagerProvider.getDigitalCredential(
+                                                dpcRequestJson
+                                        )
+
+                                tokenResult
+                                        .onSuccess { token ->
+                                                val successMsg =
+                                                        ChatMessage(
+                                                                id = randomUuid(),
+                                                                text =
+                                                                        "Debug Checkout Success! Token received:\n\n${token.take(50)}...",
+                                                                sender = SenderRole.GEMINI,
+                                                                timestamp = currentTimeMillis()
+                                                        )
+                                                _uiState.update {
+                                                        it.copy(
+                                                                messages = it.messages + successMsg,
+                                                                isLoading = false,
+                                                                statusText = ""
+                                                        )
+                                                }
+                                        }
+                                        .onFailure { e ->
+                                                val errorMsg =
+                                                        ChatMessage(
+                                                                id = randomUuid(),
+                                                                text =
+                                                                        "Debug Checkout Cancelled/Failed: ${e.message}",
+                                                                sender = SenderRole.GEMINI,
+                                                                timestamp = currentTimeMillis()
+                                                        )
+                                                _uiState.update {
+                                                        it.copy(
+                                                                messages = it.messages + errorMsg,
+                                                                isLoading = false,
+                                                                statusText = ""
+                                                        )
+                                                }
+                                        }
+                        } catch (e: Exception) {
+                                val errorMsg =
+                                        ChatMessage(
+                                                id = randomUuid(),
+                                                text =
+                                                        "Error launching debug checkout: ${e.message}",
+                                                sender = SenderRole.GEMINI,
+                                                timestamp = currentTimeMillis()
+                                        )
+                                _uiState.update {
+                                        it.copy(
+                                                messages = it.messages + errorMsg,
+                                                isLoading = false,
+                                                statusText = ""
+                                        )
+                                }
                         }
-                        .onSuccess {
-                            val successMessage =
-                                    ChatMessage(
-                                            id = randomUuid(),
-                                            text = "Successfully connected to the agent.",
-                                            sender = SenderRole.GEMINI,
-                                            timestamp = currentTimeMillis(),
-                                    )
-                            _uiState.update { it.copy(messages = it.messages + successMessage) }
-                        }
-            }
+                }
         }
-    }
-
-    fun sendMessage(userMessage: String) {
-        PlatformLogger.d(TAG, "sendMessage called with message: $userMessage")
-        if (userMessage.isBlank()) {
-            PlatformLogger.d(TAG, "User message is blank, ignoring.")
-            return
-        }
-
-        val userChatMessage =
-                ChatMessage(
-                        id = randomUuid(),
-                        text = userMessage,
-                        sender = SenderRole.USER,
-                        timestamp = currentTimeMillis(),
-                )
-        _uiState.update { it.copy(messages = it.messages + userChatMessage, isLoading = true) }
-
-        viewModelScope.launch {
-            val result =
-                    repository.getResponse(userMessage) { newStatus ->
-                        _uiState.update { it.copy(statusText = newStatus) }
-                    }
-
-            result
-                    .onSuccess { responseText ->
-                        PlatformLogger.d(TAG, "Repository returned success: '$responseText'")
-                        val geminiMessage =
-                                ChatMessage(
-                                        id = randomUuid(),
-                                        text = responseText,
-                                        sender = SenderRole.GEMINI,
-                                        timestamp = currentTimeMillis(),
-                                )
-                        _uiState.update {
-                            it.copy(messages = it.messages + geminiMessage, isLoading = false)
-                        }
-                    }
-                    .onFailure {
-                        PlatformLogger.e(TAG, "Repository returned failure", it)
-                        val errorMessage =
-                                ChatMessage(
-                                        id = randomUuid(),
-                                        text = "Sorry, an error occurred: ${it.message}",
-                                        sender = SenderRole.GEMINI,
-                                        timestamp = currentTimeMillis(),
-                                )
-                        _uiState.update {
-                            it.copy(messages = it.messages + errorMessage, isLoading = false)
-                        }
-                    }
-        }
-    }
 }

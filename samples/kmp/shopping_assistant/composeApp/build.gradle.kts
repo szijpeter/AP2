@@ -1,10 +1,21 @@
 
+
+
+
+
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+}
+
+repositories {
+    google()
+    mavenCentral()
+    maven("https://maven.waltid.dev/releases")
 }
 
 kotlin {
@@ -54,6 +65,12 @@ kotlin {
             // Multiplatform Settings
             implementation(libs.multiplatform.settings)
             implementation(libs.multiplatform.settings.no.arg)
+
+            // A-SIT Plus OpenID4VP & PKI
+            implementation(libs.asitplus.vck)
+            implementation(libs.asitplus.vck.openid)
+            implementation(libs.asitplus.vck.openid.ktor)
+            implementation(libs.asitplus.signum)
         }
 
         androidMain.dependencies {

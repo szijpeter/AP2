@@ -107,6 +107,12 @@ fun ChatScreen(viewModel: ChatViewModel, onSettingsClicked: () -> Unit) {
                             }
                         },
                         actions = {
+                            IconButton(onClick = { viewModel.triggerDebugCheckout() }) {
+                                Icon(
+                                        imageVector = Icons.Default.Build,
+                                        contentDescription = "Debug Checkout"
+                                )
+                            }
                             IconButton(onClick = { onSettingsClicked() }) {
                                 Icon(
                                         imageVector = Icons.Default.Settings,
