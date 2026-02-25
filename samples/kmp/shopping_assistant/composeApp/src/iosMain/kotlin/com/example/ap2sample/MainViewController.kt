@@ -15,14 +15,16 @@ package com.example.ap2sample
 
 import androidx.compose.ui.window.ComposeUIViewController
 import com.example.ap2sample.platform.CredentialManagerProvider
+import com.example.ap2sample.platform.PlatformLogger
+import com.example.ap2sample.platform.getGeminiApiKey
 import com.example.ap2sample.ui.App
 import com.example.ap2sample.ui.ChatViewModel
 
 /**
  * Entry point for the iOS app. Called from SwiftUI's ContentView.
  *
- * Note: The API key should be set via environment or configuration. For the sample, it's hardcoded
- * as empty — set it before running.
+ * The API key is loaded via [getGeminiApiKey], which checks the `GEMINI_API_KEY` environment
+ * variable (Xcode scheme) and then `Info.plist`.
  */
 // TODO: Replace this global ViewModel reference with proper DI / service-locator.
 //  Currently, if SwiftUI recreates the ComposeUIViewController the old ViewModel leaks
@@ -30,7 +32,7 @@ import com.example.ap2sample.ui.ChatViewModel
 private var activeViewModel: ChatViewModel? = null
 
 fun MainViewController() = ComposeUIViewController {
-    val apiKey = "" // TODO: Set API key from iOS configuration
+    val apiKey = getGeminiApiKey()
     val credentialManagerProvider = CredentialManagerProvider()
     val viewModel = ChatViewModel(apiKey, credentialManagerProvider)
     activeViewModel = viewModel
@@ -38,9 +40,6 @@ fun MainViewController() = ComposeUIViewController {
 }
 
 fun handleIosDeepLink(url: String) {
-    com.example.ap2sample.platform.PlatformLogger.d(
-            "MainViewController",
-            "Intercepted iOS App Link response: $url"
-    )
+    PlatformLogger.d("MainViewController", "Intercepted iOS App Link response: $url")
     activeViewModel?.handleDeepLink(url)
 }

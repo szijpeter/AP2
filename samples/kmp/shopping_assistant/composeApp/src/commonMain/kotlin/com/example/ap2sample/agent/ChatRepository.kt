@@ -197,8 +197,20 @@ class ChatRepository(
                 }
             }
             "update_cart" -> {
-                val cart = toolContext.state.cartMandate!!
-                val address = toolContext.state.shippingAddress!!
+                val cart = toolContext.state.cartMandate
+                val address = toolContext.state.shippingAddress
+                if (cart == null || address == null) {
+                    return buildJsonObject {
+                        put("status", "error")
+                        put(
+                                "response_text",
+                                "Cannot update cart: " +
+                                        (if (cart == null) "no product selected yet. " else "") +
+                                        (if (address == null) "no shipping address provided yet."
+                                        else "")
+                        )
+                    }
+                }
                 val cartMandate = tools.updateCart(cart.contents.id, address, toolContext)
                 if (cartMandate == null) {
                     buildJsonObject {
@@ -213,6 +225,15 @@ class ChatRepository(
             "retrieve_dpc_options" -> {
                 val result = tools.retrieveDpcOptions(toolContext)
                 handlePaymentResult(result)
+            }
+            "initiate_payment_with_otp" -> {
+                // TODO: Implement OTP retry flow when the merchant supports it.
+                val otp = args["otp"] as? String ?: ""
+                PlatformLogger.d(TAG, "OTP payment retry requested with otp=$otp")
+                buildJsonObject {
+                    put("status", "error")
+                    put("message", "OTP payment retry is not yet implemented in this sample.")
+                }
             }
             else -> {
                 PlatformLogger.e(TAG, "Unknown tool: $name")
