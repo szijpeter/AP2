@@ -16,15 +16,25 @@ package com.example.ap2sample.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ap2sample.agent.ChatRepository
+import com.example.ap2sample.ap2.dpc.constructDPCRequest
+import com.example.ap2sample.ap2.model.Amount
+import com.example.ap2sample.ap2.model.CartContents
+import com.example.ap2sample.ap2.model.CartMandate
 import com.example.ap2sample.ap2.model.ChatMessage
+import com.example.ap2sample.ap2.model.DisplayItem
+import com.example.ap2sample.ap2.model.PaymentDetails
+import com.example.ap2sample.ap2.model.PaymentOptions
+import com.example.ap2sample.ap2.model.PaymentRequestDetails
 import com.example.ap2sample.ap2.model.SenderRole
 import com.example.ap2sample.platform.CredentialManagerProvider
 import com.example.ap2sample.platform.DpcCheckoutMethod
 import com.example.ap2sample.platform.PlatformLogger
+import com.example.ap2sample.platform.acquirer.SharedOpenId4VpDcApiAcquirer
 import com.example.ap2sample.platform.currentTimeMillis
 import com.example.ap2sample.platform.platformCheckoutMethods
 import com.example.ap2sample.platform.randomUuid
 import com.russhwolf.settings.Settings
+import io.ktor.http.encodeURLParameter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -269,58 +279,14 @@ class ChatViewModel(
 
                 viewModelScope.launch {
                         try {
-                                // 1. Create a mock CartMandate
-                                val amount = com.example.ap2sample.ap2.model.Amount("USD", 42.99)
-                                val displayItem =
-                                        com.example.ap2sample.ap2.model.DisplayItem(
-                                                label = "Debug Magic Shoes",
-                                                amount = amount
-                                        )
-                                val paymentDetails =
-                                        com.example.ap2sample.ap2.model.PaymentDetails(
-                                                id = "debug-order-1",
-                                                displayItems = listOf(displayItem),
-                                                total = displayItem
-                                        )
-                                val paymentOptions =
-                                        com.example.ap2sample.ap2.model.PaymentOptions(
-                                                requestPayerName = true,
-                                                requestPayerEmail = true,
-                                                requestPayerPhone = true,
-                                                requestShipping = true
-                                        )
-                                val requestDetails =
-                                        com.example.ap2sample.ap2.model.PaymentRequestDetails(
-                                                methodData = emptyList(),
-                                                details = paymentDetails,
-                                                options = paymentOptions
-                                        )
-
-                                val cartContents =
-                                        com.example.ap2sample.ap2.model.CartContents(
-                                                id = "debug-cart-1",
-                                                userCartConfirmationRequired = false,
-                                                paymentRequest = requestDetails,
-                                                cartExpiry = "2099-12-31T23:59:59Z",
-                                                merchantName = "Test Demo Store"
-                                        )
-                                val mockCart =
-                                        com.example.ap2sample.ap2.model.CartMandate(
-                                                contents = cartContents,
-                                                merchantAuthorization = null
-                                        )
-
-                                // 2. Generate the DPC OpenID4VP Request JSON
+                                val mockCart = createDebugCart()
                                 val dpcRequestJson =
-                                        com.example.ap2sample.ap2.dpc.constructDPCRequest(
-                                                mockCart,
-                                                "Test Demo Store"
-                                        )
+                                        constructDPCRequest(mockCart, DEBUG_MERCHANT_NAME)
 
-                                // 3. Invoke checkout based on configured method
                                 when (_dpcCheckoutMethod.value) {
                                         DpcCheckoutMethod.APP_LINK -> {
-                                                val encodedJson = dpcRequestJson.urlEncode()
+                                                val encodedJson =
+                                                        dpcRequestJson.encodeURLParameter()
                                                 val uri = "openid4vp://?request=$encodedJson"
                                                 PlatformLogger.d(TAG, "Launching App Link: $uri")
                                                 try {
@@ -334,7 +300,8 @@ class ChatViewModel(
                                                         }
                                                 } catch (e: Exception) {
                                                         throw Exception(
-                                                                "No wallet app found to handle the 'openid4vp://' App Link on this device. Please install one, or switch back to Android Credential Manager / Mock KMP Flow in Settings."
+                                                                "No wallet app found to handle the 'openid4vp://' App Link. " +
+                                                                        "Install a wallet app, or switch to Credential Manager / Mock KMP Flow in Settings."
                                                         )
                                                 }
                                         }
@@ -344,9 +311,7 @@ class ChatViewModel(
                                                                         DpcCheckoutMethod
                                                                                 .MOCK_KMP_FLOW
                                                         ) {
-                                                                com.example.ap2sample.platform
-                                                                        .acquirer
-                                                                        .SharedOpenId4VpDcApiAcquirer
+                                                                SharedOpenId4VpDcApiAcquirer
                                                                         .acquire(dpcRequestJson)
                                                         } else {
                                                                 credentialManagerProvider
@@ -357,89 +322,88 @@ class ChatViewModel(
 
                                                 tokenResult
                                                         .onSuccess { token ->
-                                                                val successMsg =
-                                                                        ChatMessage(
-                                                                                id = randomUuid(),
-                                                                                text =
-                                                                                        "Debug Checkout Success! Token received:\n\n${token.take(50)}...",
-                                                                                sender =
-                                                                                        SenderRole
-                                                                                                .GEMINI,
-                                                                                timestamp =
-                                                                                        currentTimeMillis()
-                                                                        )
-                                                                _uiState.update {
-                                                                        it.copy(
-                                                                                messages =
-                                                                                        it.messages +
-                                                                                                successMsg,
-                                                                                isLoading = false,
-                                                                                statusText = ""
-                                                                        )
-                                                                }
+                                                                appendMessage(
+                                                                        "Debug Checkout Success! Token received:\n\n${token.take(50)}..."
+                                                                )
                                                         }
                                                         .onFailure { e ->
-                                                                val errorMsg =
-                                                                        ChatMessage(
-                                                                                id = randomUuid(),
-                                                                                text =
-                                                                                        "Debug Checkout Cancelled/Failed: ${e.message}",
-                                                                                sender =
-                                                                                        SenderRole
-                                                                                                .GEMINI,
-                                                                                timestamp =
-                                                                                        currentTimeMillis()
-                                                                        )
-                                                                _uiState.update {
-                                                                        it.copy(
-                                                                                messages =
-                                                                                        it.messages +
-                                                                                                errorMsg,
-                                                                                isLoading = false,
-                                                                                statusText = ""
-                                                                        )
-                                                                }
+                                                                appendMessage(
+                                                                        "Debug Checkout Cancelled/Failed: ${e.message}"
+                                                                )
                                                         }
                                         }
                                 }
                         } catch (e: Exception) {
-                                val errorMsg =
-                                        ChatMessage(
-                                                id = randomUuid(),
-                                                text =
-                                                        "Error launching debug checkout: ${e.message}",
-                                                sender = SenderRole.GEMINI,
-                                                timestamp = currentTimeMillis()
-                                        )
-                                _uiState.update {
-                                        it.copy(
-                                                messages = it.messages + errorMsg,
-                                                isLoading = false,
-                                                statusText = ""
-                                        )
-                                }
+                                appendMessage("Error launching debug checkout: ${e.message}")
                         }
                 }
         }
 
+        /**
+         * Receives the deep link callback from a wallet app after an App Link checkout.
+         *
+         * Currently this only acknowledges receipt by updating the UI status. A production
+         * implementation should:
+         * 1. Parse the `response` query parameter from the [url].
+         * 2. Validate the VP token / presentation submission.
+         * 3. Resume the checkout flow or display the result to the user.
+         */
         fun handleDeepLink(url: String) {
                 PlatformLogger.i(TAG, "ChatViewModel received deep link response: $url")
-                // TODO: Parse the 'response' query parameter and update ViewModel state or resume
-                // checkout
-                _uiState.update {
-                        it.copy(
-                                isLoading = false,
-                                statusText = "Wallet response received via App Link!"
+                // TODO(peterSzij): Parse the VP token from the response URL and complete the
+                //  checkout flow end-to-end.
+                appendMessage(
+                        "Wallet response received via App Link!\nRaw URL: ${url.take(120)}..."
+                )
+        }
+
+        /** Appends a GEMINI-role message and clears the loading state. */
+        private fun appendMessage(text: String) {
+                val msg =
+                        ChatMessage(
+                                id = randomUuid(),
+                                text = text,
+                                sender = SenderRole.GEMINI,
+                                timestamp = currentTimeMillis()
                         )
+                _uiState.update {
+                        it.copy(messages = it.messages + msg, isLoading = false, statusText = "")
                 }
         }
 }
 
-private fun String.urlEncode(): String {
-        val allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
-        return this.encodeToByteArray().joinToString("") { byte ->
-                val c = byte.toInt().toChar()
-                if (c in allowedChars) c.toString()
-                else "%" + byte.toUByte().toString(16).padStart(2, '0').uppercase()
-        }
+private const val DEBUG_MERCHANT_NAME = "Test Demo Store"
+
+/** Creates a hardcoded [CartMandate] for testing the DPC checkout flow. */
+private fun createDebugCart(): CartMandate {
+        val amount = Amount("USD", 42.99)
+        val displayItem = DisplayItem(label = "Debug Magic Shoes", amount = amount)
+        val paymentDetails =
+                PaymentDetails(
+                        id = "debug-order-1",
+                        displayItems = listOf(displayItem),
+                        total = displayItem
+                )
+        val paymentOptions =
+                PaymentOptions(
+                        requestPayerName = true,
+                        requestPayerEmail = true,
+                        requestPayerPhone = true,
+                        requestShipping = true
+                )
+        val requestDetails =
+                PaymentRequestDetails(
+                        methodData = emptyList(),
+                        details = paymentDetails,
+                        options = paymentOptions
+                )
+        val cartContents =
+                CartContents(
+                        id = "debug-cart-1",
+                        userCartConfirmationRequired = false,
+                        paymentRequest = requestDetails,
+                        cartExpiry = "2099-12-31T23:59:59Z",
+                        merchantName = DEBUG_MERCHANT_NAME
+                )
+        return CartMandate(contents = cartContents, merchantAuthorization = null)
 }

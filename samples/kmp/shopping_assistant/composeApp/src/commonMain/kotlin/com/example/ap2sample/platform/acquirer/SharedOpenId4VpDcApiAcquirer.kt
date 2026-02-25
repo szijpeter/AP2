@@ -222,67 +222,7 @@ object SharedOpenId4VpDcApiAcquirer : DigitalCredentialAcquirer {
                                         )
 
                                         val dataJson =
-                                                try {
-                                                        vckJsonSerializer.encodeToJsonElement(
-                                                                resultData
-                                                        )
-                                                } catch (e: Exception) {
-                                                        PlatformLogger.w(
-                                                                "SharedDPC",
-                                                                "Manual serialization fallback for ${resultData::class.simpleName}: ${e.message}"
-                                                        )
-                                                        if (resultData::class.simpleName == "DcApi"
-                                                        ) {
-                                                                val dcApiStr = resultData.toString()
-                                                                val vpTokenPrefix = "vpToken="
-                                                                val psPrefix =
-                                                                        "presentationSubmission="
-
-                                                                val vpTokenStart =
-                                                                        dcApiStr.indexOf(
-                                                                                vpTokenPrefix
-                                                                        )
-                                                                val psStart =
-                                                                        dcApiStr.indexOf(psPrefix)
-
-                                                                if (vpTokenStart != -1 &&
-                                                                                psStart != -1
-                                                                ) {
-                                                                        val vpToken =
-                                                                                dcApiStr.substring(
-                                                                                        vpTokenStart +
-                                                                                                vpTokenPrefix
-                                                                                                        .length,
-                                                                                        psStart - 2
-                                                                                ) // -2 for ", "
-                                                                        val presentationSubmission =
-                                                                                dcApiStr.substring(
-                                                                                        psStart +
-                                                                                                psPrefix.length,
-                                                                                        dcApiStr.length -
-                                                                                                1
-                                                                                )
-
-                                                                        buildJsonObject {
-                                                                                put(
-                                                                                        "vp_token",
-                                                                                        vpToken
-                                                                                )
-                                                                                put(
-                                                                                        "presentation_submission",
-                                                                                        presentationSubmission
-                                                                                )
-                                                                        }
-                                                                } else {
-                                                                        throw IllegalStateException(
-                                                                                "DcApi not serializable, couldn't parse: $dcApiStr",
-                                                                                e
-                                                                        )
-                                                                }
-                                                        } else {
-                                                                throw e
-                                                        }
-                                                }
+                                                vckJsonSerializer.encodeToJsonElement(resultData)
 
                                         val dict = buildJsonObject {
                                                 put("protocol", protocol)

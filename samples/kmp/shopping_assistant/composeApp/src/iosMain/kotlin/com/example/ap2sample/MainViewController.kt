@@ -24,6 +24,9 @@ import com.example.ap2sample.ui.ChatViewModel
  * Note: The API key should be set via environment or configuration. For the sample, it's hardcoded
  * as empty — set it before running.
  */
+// TODO: Replace this global ViewModel reference with proper DI / service-locator.
+//  Currently, if SwiftUI recreates the ComposeUIViewController the old ViewModel leaks
+//  and the new one is never wired up for deep link handling.
 private var activeViewModel: ChatViewModel? = null
 
 fun MainViewController() = ComposeUIViewController {

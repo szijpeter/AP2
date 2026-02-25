@@ -1,6 +1,7 @@
 [versions]
 agp = "9.0.0"
 android-compileSdk = "36"
+# API 30+ required for CredentialManager / DigitalCredential APIs used by DPC checkout
 android-minSdk = "30"
 android-targetSdk = "36"
 androidx-activity = "1.12.2"
