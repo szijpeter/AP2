@@ -1,0 +1,8 @@
+package com.example.ap2sample.platform
+
+actual val platformCheckoutMethods: List<DpcCheckoutMethod> =
+        listOf(
+                DpcCheckoutMethod.CREDENTIAL_MANAGER,
+                DpcCheckoutMethod.APP_LINK,
+                DpcCheckoutMethod.MOCK_KMP_FLOW
+        )

@@ -211,3 +211,11 @@ gradle-app.setting
 ### Gradle Patch ###
 # Java heap dump
 *.hprof
+
+# User Requested
+local.properties
+**/.kotlin/metadata/kotlinTransformedMetadataLibraries
+
+# Xcode
+*.xcuserstate
+**/xcuserdata/
