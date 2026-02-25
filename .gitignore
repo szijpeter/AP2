@@ -215,3 +215,7 @@ gradle-app.setting
 # User Requested
 local.properties
 **/.kotlin/metadata/kotlinTransformedMetadataLibraries
+
+# Xcode
+*.xcuserstate
+xcuserdata/
