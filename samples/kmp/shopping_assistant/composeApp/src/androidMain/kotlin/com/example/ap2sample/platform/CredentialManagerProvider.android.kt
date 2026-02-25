@@ -19,7 +19,9 @@ import androidx.credentials.DigitalCredential
 import androidx.credentials.ExperimentalDigitalCredentialApi
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetDigitalCredentialOption
+import androidx.credentials.exceptions.NoCredentialException
 import com.example.ap2sample.platform.acquirer.SharedOpenId4VpDcApiAcquirer
+import com.russhwolf.settings.Settings
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -27,9 +29,20 @@ import org.json.JSONObject
 actual class CredentialManagerProvider(private val activity: Activity) {
 
     private val credentialManager = CredentialManager.create(activity)
+    private val settings = Settings()
 
     @OptIn(ExperimentalDigitalCredentialApi::class)
     actual suspend fun getDigitalCredential(requestJson: String): Result<String> {
+        val useNative = settings.getBoolean("use_android_credential_manager", true)
+
+        if (!useNative) {
+            PlatformLogger.i(
+                    "CredentialManager",
+                    "Native Credential Manager bypassed via settings. Using Shared KMP Acquirer."
+            )
+            return SharedOpenId4VpDcApiAcquirer.acquire(requestJson)
+        }
+
         return try {
             val jsonFromMerchant = JSONObject(requestJson)
             val protocol = jsonFromMerchant.getString("protocol")
@@ -55,6 +68,13 @@ actual class CredentialManagerProvider(private val activity: Activity) {
             val dpcCredential = credential.credential as DigitalCredential
             PlatformLogger.i("CredentialManager", "Credential Manager returned a token.")
             Result.success(dpcCredential.credentialJson)
+        } catch (e: NoCredentialException) {
+            PlatformLogger.e(
+                    "CredentialManager",
+                    "No credentials found in Native Credential Manager.",
+                    e
+            )
+            Result.failure(Exception("No eligible credentials found", e))
         } catch (e: Exception) {
             PlatformLogger.e(
                     "CredentialManager",

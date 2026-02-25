@@ -21,7 +21,10 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private val json = Json { ignoreUnknownKeys = true }
+private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+}
 
 /** Formats a Double to exactly 2 decimal places (cross-platform, no BigDecimal). */
 private fun formatToTwoDecimals(value: Double): String {
@@ -87,7 +90,6 @@ fun constructDPCRequest(cartMandate: CartMandate, merchantName: String): String 
                         additionalInfo = json.encodeToString(additionalInfo),
                 )
 
-        // Build the DCQL query to request specific credential claims.
         val claims =
                 listOf(
                         Claim(path = listOf("com.emvco.payment_card.1", "card_number")),

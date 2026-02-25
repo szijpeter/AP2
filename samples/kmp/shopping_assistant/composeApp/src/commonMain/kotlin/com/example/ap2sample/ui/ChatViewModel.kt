@@ -30,6 +30,8 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "ChatViewModel"
 private const val AGENT_CARD_URL_KEY = "agent_card_url"
+private const val USE_ANDROID_CREDENTIAL_MANAGER_KEY = "use_android_credential_manager"
+private const val USE_MOCKED_CREDENTIALS_KEY = "use_mocked_credentials"
 
 data class ChatUiState(
         val messages: List<ChatMessage> = emptyList(),
@@ -50,6 +52,12 @@ class ChatViewModel(
 
         private val _agentCardUrl = MutableStateFlow("")
         val agentCardUrl = _agentCardUrl.asStateFlow()
+
+        private val _useAndroidCredentialManager = MutableStateFlow(true)
+        val useAndroidCredentialManager = _useAndroidCredentialManager.asStateFlow()
+
+        private val _useMockedCredentials = MutableStateFlow(true)
+        val useMockedCredentials = _useMockedCredentials.asStateFlow()
 
         init {
                 PlatformLogger.i(TAG, "ChatViewModel initialized.")
@@ -73,6 +81,10 @@ class ChatViewModel(
                         val url = settings.getStringOrNull(AGENT_CARD_URL_KEY) ?: ""
                         PlatformLogger.d(TAG, "Settings loaded URL: $url")
                         _agentCardUrl.value = url
+                        _useAndroidCredentialManager.value =
+                                settings.getBoolean(USE_ANDROID_CREDENTIAL_MANAGER_KEY, true)
+                        _useMockedCredentials.value =
+                                settings.getBoolean(USE_MOCKED_CREDENTIALS_KEY, true)
 
                         if (url.isNotBlank()) {
                                 PlatformLogger.d(
@@ -180,6 +192,16 @@ class ChatViewModel(
                                         }
                         }
                 }
+        }
+
+        fun setUseAndroidCredentialManager(useAndroid: Boolean) {
+                settings.putBoolean(USE_ANDROID_CREDENTIAL_MANAGER_KEY, useAndroid)
+                _useAndroidCredentialManager.value = useAndroid
+        }
+
+        fun setUseMockedCredentials(useMock: Boolean) {
+                settings.putBoolean(USE_MOCKED_CREDENTIALS_KEY, useMock)
+                _useMockedCredentials.value = useMock
         }
 
         fun sendMessage(userMessage: String) {

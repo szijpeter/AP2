@@ -22,11 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -42,10 +45,20 @@ private const val MERCHANT_AGENT_URL = "http://localhost:8001/a2a/merchant_agent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(agentCardUrl: String, onDoneClicked: (String) -> Unit) {
+fun SettingsScreen(
+        agentCardUrl: String,
+        useAndroidCredentialManager: Boolean,
+        useMockedCredentials: Boolean,
+        onDoneClicked: (String, Boolean, Boolean) -> Unit
+) {
     val agentOptions = listOf("Generic Merchant Agent" to MERCHANT_AGENT_URL, "Custom" to "")
 
     var editedUrl by remember { mutableStateOf(agentCardUrl) }
+    var editedUseAndroidCredentialManager by remember {
+        mutableStateOf(useAndroidCredentialManager)
+    }
+    var editedUseMockedCredentials by remember { mutableStateOf(useMockedCredentials) }
+
     var selectedOption by remember {
         mutableStateOf(
                 agentOptions.find { it.second == agentCardUrl && it.first != "Custom" }?.first
@@ -58,7 +71,15 @@ fun SettingsScreen(agentCardUrl: String, onDoneClicked: (String) -> Unit) {
                 TopAppBar(
                         title = { Text("Settings") },
                         actions = {
-                            IconButton(onClick = { onDoneClicked(editedUrl) }) {
+                            IconButton(
+                                    onClick = {
+                                        onDoneClicked(
+                                                editedUrl,
+                                                editedUseAndroidCredentialManager,
+                                                editedUseMockedCredentials
+                                        )
+                                    }
+                            ) {
                                 Icon(imageVector = Icons.Default.Done, contentDescription = "Done")
                             }
                         },
@@ -118,6 +139,50 @@ fun SettingsScreen(agentCardUrl: String, onDoneClicked: (String) -> Unit) {
                         }
                     },
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            Text(
+                    "Debug Options",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Android Native Auth Manager")
+                    Text(
+                            "If disabled, uses shared KMP flow on Android",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                        checked = editedUseAndroidCredentialManager,
+                        onCheckedChange = { editedUseAndroidCredentialManager = it }
+                )
+            }
+
+            Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Use Mock Credentials")
+                    Text(
+                            "Seeds and selects demo card for KMP flow",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                        checked = editedUseMockedCredentials,
+                        onCheckedChange = { editedUseMockedCredentials = it }
+                )
+            }
         }
     }
 }

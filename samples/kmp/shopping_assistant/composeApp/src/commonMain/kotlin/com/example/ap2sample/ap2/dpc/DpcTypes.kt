@@ -29,7 +29,13 @@ data class Request(
         @SerialName("client_metadata") val clientMetadata: ClientMetadata? = null,
 )
 
-@Serializable data class DcqlQuery(val credentials: List<CredentialQuery>)
+@Serializable
+data class DcqlQuery(
+        val credentials: List<CredentialQuery>,
+        @SerialName("credential_sets") val credentialSets: List<CredentialSet>? = null
+)
+
+@Serializable data class CredentialSet(val options: List<List<String>>)
 
 @Serializable
 data class CredentialQuery(
@@ -41,7 +47,12 @@ data class CredentialQuery(
 
 @Serializable data class Meta(@SerialName("doctype_value") val doctypeValue: String)
 
-@Serializable data class Claim(val path: List<String>)
+@Serializable
+data class Claim(
+        val path: List<String>? = null,
+        val namespace: String? = null,
+        @SerialName("claim_name") val claimName: String? = null
+)
 
 @Serializable
 data class ClientMetadata(

@@ -35,13 +35,21 @@ fun App(viewModel: ChatViewModel) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             var currentScreen by remember { mutableStateOf("chat") }
             val agentCardUrl by viewModel.agentCardUrl.collectAsState()
+            val confirmationRequest by CredentialConfirmationController.request.collectAsState()
 
             when (currentScreen) {
                 "settings" ->
                         SettingsScreen(
                                 agentCardUrl = agentCardUrl,
-                                onDoneClicked = { newUrl ->
+                                useAndroidCredentialManager =
+                                        viewModel.useAndroidCredentialManager.collectAsState()
+                                                .value,
+                                useMockedCredentials =
+                                        viewModel.useMockedCredentials.collectAsState().value,
+                                onDoneClicked = { newUrl, useAndroid, useMock ->
                                     viewModel.setAgentCardUrl(newUrl)
+                                    viewModel.setUseAndroidCredentialManager(useAndroid)
+                                    viewModel.setUseMockedCredentials(useMock)
                                     currentScreen = "chat"
                                 },
                         )
@@ -50,6 +58,15 @@ fun App(viewModel: ChatViewModel) {
                                 viewModel = viewModel,
                                 onSettingsClicked = { currentScreen = "settings" },
                         )
+            }
+
+            confirmationRequest?.let { request ->
+                CredentialConfirmationSheet(
+                        request = request,
+                        onDismissRequest = {
+                            // The sheet manages resolving the deferred with false
+                        }
+                )
             }
         }
     }
