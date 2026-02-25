@@ -21,6 +21,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Request(
+        @SerialName("client_id") val clientId: String,
+        @SerialName("redirect_uri") val redirectUri: String? = null,
         @SerialName("response_type") val responseType: String,
         @SerialName("response_mode") val responseMode: String,
         val nonce: String,

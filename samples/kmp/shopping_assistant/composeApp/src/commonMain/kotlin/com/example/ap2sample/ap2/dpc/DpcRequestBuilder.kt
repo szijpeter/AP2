@@ -125,6 +125,8 @@ fun constructDPCRequest(cartMandate: CartMandate, merchantName: String): String 
         // Build the final request object.
         val dcRequest =
                 Request(
+                        clientId = "ap2sample://response",
+                        redirectUri = "ap2sample://response",
                         responseType = "vp_token",
                         responseMode = "dc_api",
                         nonce = nonce,
