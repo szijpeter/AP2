@@ -6,6 +6,10 @@ struct iOSApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    print("Received deep link in iOSApp: \(url)")
+                    MainViewControllerKt.handleIosDeepLink(url: url.absoluteString)
+                }
         }
     }
 }

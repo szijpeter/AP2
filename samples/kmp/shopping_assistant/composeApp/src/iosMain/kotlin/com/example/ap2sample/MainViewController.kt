@@ -24,9 +24,20 @@ import com.example.ap2sample.ui.ChatViewModel
  * Note: The API key should be set via environment or configuration. For the sample, it's hardcoded
  * as empty — set it before running.
  */
+private var activeViewModel: ChatViewModel? = null
+
 fun MainViewController() = ComposeUIViewController {
     val apiKey = "" // TODO: Set API key from iOS configuration
     val credentialManagerProvider = CredentialManagerProvider()
     val viewModel = ChatViewModel(apiKey, credentialManagerProvider)
+    activeViewModel = viewModel
     App(viewModel)
+}
+
+fun handleIosDeepLink(url: String) {
+    com.example.ap2sample.platform.PlatformLogger.d(
+            "MainViewController",
+            "Intercepted iOS App Link response: $url"
+    )
+    activeViewModel?.handleDeepLink(url)
 }

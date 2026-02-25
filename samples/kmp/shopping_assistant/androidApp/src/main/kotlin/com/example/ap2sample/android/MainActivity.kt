@@ -13,6 +13,7 @@
  */
 package com.example.ap2sample.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,13 +22,34 @@ import com.example.ap2sample.ui.App
 import com.example.ap2sample.ui.ChatViewModel
 
 class MainActivity : ComponentActivity() {
+    private lateinit var viewModel: ChatViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            val credentialManagerProvider = CredentialManagerProvider(this)
-            val viewModel = ChatViewModel(apiKey, credentialManagerProvider)
-            App(viewModel)
+
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        val credentialManagerProvider = CredentialManagerProvider(this)
+        viewModel = ChatViewModel(apiKey, credentialManagerProvider)
+
+        handleIntent(intent)
+
+        setContent { App(viewModel) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        intent.data?.let { uri ->
+            if (uri.scheme == "ap2sample") {
+                com.example.ap2sample.platform.PlatformLogger.d(
+                        "MainActivity",
+                        "Intercepted App Link response: $uri"
+                )
+                viewModel.handleDeepLink(uri.toString())
+            }
         }
     }
 }

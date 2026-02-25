@@ -19,8 +19,10 @@ import com.example.ap2sample.agent.ChatRepository
 import com.example.ap2sample.ap2.model.ChatMessage
 import com.example.ap2sample.ap2.model.SenderRole
 import com.example.ap2sample.platform.CredentialManagerProvider
+import com.example.ap2sample.platform.DpcCheckoutMethod
 import com.example.ap2sample.platform.PlatformLogger
 import com.example.ap2sample.platform.currentTimeMillis
+import com.example.ap2sample.platform.platformCheckoutMethods
 import com.example.ap2sample.platform.randomUuid
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,8 +32,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "ChatViewModel"
 private const val AGENT_CARD_URL_KEY = "agent_card_url"
-private const val USE_ANDROID_CREDENTIAL_MANAGER_KEY = "use_android_credential_manager"
-private const val USE_MOCKED_CREDENTIALS_KEY = "use_mocked_credentials"
+private const val DPC_CHECKOUT_METHOD_KEY = "dpc_checkout_method"
 
 data class ChatUiState(
         val messages: List<ChatMessage> = emptyList(),
@@ -53,11 +54,8 @@ class ChatViewModel(
         private val _agentCardUrl = MutableStateFlow("")
         val agentCardUrl = _agentCardUrl.asStateFlow()
 
-        private val _useAndroidCredentialManager = MutableStateFlow(true)
-        val useAndroidCredentialManager = _useAndroidCredentialManager.asStateFlow()
-
-        private val _useMockedCredentials = MutableStateFlow(true)
-        val useMockedCredentials = _useMockedCredentials.asStateFlow()
+        private val _dpcCheckoutMethod = MutableStateFlow(platformCheckoutMethods.first())
+        val dpcCheckoutMethod = _dpcCheckoutMethod.asStateFlow()
 
         init {
                 PlatformLogger.i(TAG, "ChatViewModel initialized.")
@@ -81,10 +79,11 @@ class ChatViewModel(
                         val url = settings.getStringOrNull(AGENT_CARD_URL_KEY) ?: ""
                         PlatformLogger.d(TAG, "Settings loaded URL: $url")
                         _agentCardUrl.value = url
-                        _useAndroidCredentialManager.value =
-                                settings.getBoolean(USE_ANDROID_CREDENTIAL_MANAGER_KEY, true)
-                        _useMockedCredentials.value =
-                                settings.getBoolean(USE_MOCKED_CREDENTIALS_KEY, true)
+
+                        val savedMethodName = settings.getStringOrNull(DPC_CHECKOUT_METHOD_KEY)
+                        val savedMethod =
+                                platformCheckoutMethods.find { it.name == savedMethodName }
+                        _dpcCheckoutMethod.value = savedMethod ?: platformCheckoutMethods.first()
 
                         if (url.isNotBlank()) {
                                 PlatformLogger.d(
@@ -194,14 +193,9 @@ class ChatViewModel(
                 }
         }
 
-        fun setUseAndroidCredentialManager(useAndroid: Boolean) {
-                settings.putBoolean(USE_ANDROID_CREDENTIAL_MANAGER_KEY, useAndroid)
-                _useAndroidCredentialManager.value = useAndroid
-        }
-
-        fun setUseMockedCredentials(useMock: Boolean) {
-                settings.putBoolean(USE_MOCKED_CREDENTIALS_KEY, useMock)
-                _useMockedCredentials.value = useMock
+        fun setDpcCheckoutMethod(method: DpcCheckoutMethod) {
+                settings.putString(DPC_CHECKOUT_METHOD_KEY, method.name)
+                _dpcCheckoutMethod.value = method
         }
 
         fun sendMessage(userMessage: String) {
@@ -267,7 +261,7 @@ class ChatViewModel(
                                 }
                 }
         }
-        fun triggerDebugCheckout() {
+        fun triggerDebugCheckout(onLaunchUrl: (String) -> Unit) {
                 PlatformLogger.d(TAG, "Triggering debug DCAPI checkout flow directly")
                 _uiState.update {
                         it.copy(isLoading = true, statusText = "Launching Debug Checkout...")
@@ -323,47 +317,91 @@ class ChatViewModel(
                                                 "Test Demo Store"
                                         )
 
-                                // 3. Invoke credential manager directly
-                                val tokenResult =
-                                        credentialManagerProvider.getDigitalCredential(
-                                                dpcRequestJson
-                                        )
+                                // 3. Invoke checkout based on configured method
+                                when (_dpcCheckoutMethod.value) {
+                                        DpcCheckoutMethod.APP_LINK -> {
+                                                val encodedJson = dpcRequestJson.urlEncode()
+                                                val uri = "openid4vp://?request=$encodedJson"
+                                                PlatformLogger.d(TAG, "Launching App Link: $uri")
+                                                try {
+                                                        onLaunchUrl(uri)
+                                                        _uiState.update {
+                                                                it.copy(
+                                                                        isLoading = true,
+                                                                        statusText =
+                                                                                "Waiting for Wallet Response..."
+                                                                )
+                                                        }
+                                                } catch (e: Exception) {
+                                                        throw Exception(
+                                                                "No wallet app found to handle the 'openid4vp://' App Link on this device. Please install one, or switch back to Android Credential Manager / Mock KMP Flow in Settings."
+                                                        )
+                                                }
+                                        }
+                                        else -> {
+                                                val tokenResult =
+                                                        if (_dpcCheckoutMethod.value ==
+                                                                        DpcCheckoutMethod
+                                                                                .MOCK_KMP_FLOW
+                                                        ) {
+                                                                com.example.ap2sample.platform
+                                                                        .acquirer
+                                                                        .SharedOpenId4VpDcApiAcquirer
+                                                                        .acquire(dpcRequestJson)
+                                                        } else {
+                                                                credentialManagerProvider
+                                                                        .getDigitalCredential(
+                                                                                dpcRequestJson
+                                                                        )
+                                                        }
 
-                                tokenResult
-                                        .onSuccess { token ->
-                                                val successMsg =
-                                                        ChatMessage(
-                                                                id = randomUuid(),
-                                                                text =
-                                                                        "Debug Checkout Success! Token received:\n\n${token.take(50)}...",
-                                                                sender = SenderRole.GEMINI,
-                                                                timestamp = currentTimeMillis()
-                                                        )
-                                                _uiState.update {
-                                                        it.copy(
-                                                                messages = it.messages + successMsg,
-                                                                isLoading = false,
-                                                                statusText = ""
-                                                        )
-                                                }
+                                                tokenResult
+                                                        .onSuccess { token ->
+                                                                val successMsg =
+                                                                        ChatMessage(
+                                                                                id = randomUuid(),
+                                                                                text =
+                                                                                        "Debug Checkout Success! Token received:\n\n${token.take(50)}...",
+                                                                                sender =
+                                                                                        SenderRole
+                                                                                                .GEMINI,
+                                                                                timestamp =
+                                                                                        currentTimeMillis()
+                                                                        )
+                                                                _uiState.update {
+                                                                        it.copy(
+                                                                                messages =
+                                                                                        it.messages +
+                                                                                                successMsg,
+                                                                                isLoading = false,
+                                                                                statusText = ""
+                                                                        )
+                                                                }
+                                                        }
+                                                        .onFailure { e ->
+                                                                val errorMsg =
+                                                                        ChatMessage(
+                                                                                id = randomUuid(),
+                                                                                text =
+                                                                                        "Debug Checkout Cancelled/Failed: ${e.message}",
+                                                                                sender =
+                                                                                        SenderRole
+                                                                                                .GEMINI,
+                                                                                timestamp =
+                                                                                        currentTimeMillis()
+                                                                        )
+                                                                _uiState.update {
+                                                                        it.copy(
+                                                                                messages =
+                                                                                        it.messages +
+                                                                                                errorMsg,
+                                                                                isLoading = false,
+                                                                                statusText = ""
+                                                                        )
+                                                                }
+                                                        }
                                         }
-                                        .onFailure { e ->
-                                                val errorMsg =
-                                                        ChatMessage(
-                                                                id = randomUuid(),
-                                                                text =
-                                                                        "Debug Checkout Cancelled/Failed: ${e.message}",
-                                                                sender = SenderRole.GEMINI,
-                                                                timestamp = currentTimeMillis()
-                                                        )
-                                                _uiState.update {
-                                                        it.copy(
-                                                                messages = it.messages + errorMsg,
-                                                                isLoading = false,
-                                                                statusText = ""
-                                                        )
-                                                }
-                                        }
+                                }
                         } catch (e: Exception) {
                                 val errorMsg =
                                         ChatMessage(
@@ -382,5 +420,26 @@ class ChatViewModel(
                                 }
                         }
                 }
+        }
+
+        fun handleDeepLink(url: String) {
+                PlatformLogger.i(TAG, "ChatViewModel received deep link response: $url")
+                // TODO: Parse the 'response' query parameter and update ViewModel state or resume
+                // checkout
+                _uiState.update {
+                        it.copy(
+                                isLoading = false,
+                                statusText = "Wallet response received via App Link!"
+                        )
+                }
+        }
+}
+
+private fun String.urlEncode(): String {
+        val allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
+        return this.encodeToByteArray().joinToString("") { byte ->
+                val c = byte.toInt().toChar()
+                if (c in allowedChars) c.toString()
+                else "%" + byte.toUByte().toString(16).padStart(2, '0').uppercase()
         }
 }

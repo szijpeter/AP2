@@ -22,5 +22,18 @@
 	<dict/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.example.ap2sample</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ap2sample</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

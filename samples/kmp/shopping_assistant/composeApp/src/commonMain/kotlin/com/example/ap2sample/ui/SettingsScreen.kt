@@ -29,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -40,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.ap2sample.platform.DpcCheckoutMethod
+import com.example.ap2sample.platform.platformCheckoutMethods
 
 private const val MERCHANT_AGENT_URL = "http://localhost:8001/a2a/merchant_agent"
 
@@ -47,17 +48,13 @@ private const val MERCHANT_AGENT_URL = "http://localhost:8001/a2a/merchant_agent
 @Composable
 fun SettingsScreen(
         agentCardUrl: String,
-        useAndroidCredentialManager: Boolean,
-        useMockedCredentials: Boolean,
-        onDoneClicked: (String, Boolean, Boolean) -> Unit
+        dpcCheckoutMethod: DpcCheckoutMethod,
+        onDoneClicked: (String, DpcCheckoutMethod) -> Unit
 ) {
     val agentOptions = listOf("Generic Merchant Agent" to MERCHANT_AGENT_URL, "Custom" to "")
 
     var editedUrl by remember { mutableStateOf(agentCardUrl) }
-    var editedUseAndroidCredentialManager by remember {
-        mutableStateOf(useAndroidCredentialManager)
-    }
-    var editedUseMockedCredentials by remember { mutableStateOf(useMockedCredentials) }
+    var editedDpcCheckoutMethod by remember { mutableStateOf(dpcCheckoutMethod) }
 
     var selectedOption by remember {
         mutableStateOf(
@@ -72,13 +69,7 @@ fun SettingsScreen(
                         title = { Text("Settings") },
                         actions = {
                             IconButton(
-                                    onClick = {
-                                        onDoneClicked(
-                                                editedUrl,
-                                                editedUseAndroidCredentialManager,
-                                                editedUseMockedCredentials
-                                        )
-                                    }
+                                    onClick = { onDoneClicked(editedUrl, editedDpcCheckoutMethod) }
                             ) {
                                 Icon(imageVector = Icons.Default.Done, contentDescription = "Done")
                             }
@@ -148,40 +139,30 @@ fun SettingsScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Android Native Auth Manager")
-                    Text(
-                            "If disabled, uses shared KMP flow on Android",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            platformCheckoutMethods.forEach { method ->
+                Row(
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .selectable(
+                                                selected = (editedDpcCheckoutMethod == method),
+                                                onClick = { editedDpcCheckoutMethod = method }
+                                        )
+                                        .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                            selected = (editedDpcCheckoutMethod == method),
+                            onClick = null,
                     )
+                    Column(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
+                        Text(method.displayName)
+                        Text(
+                                method.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                Switch(
-                        checked = editedUseAndroidCredentialManager,
-                        onCheckedChange = { editedUseAndroidCredentialManager = it }
-                )
-            }
-
-            Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Use Mock Credentials")
-                    Text(
-                            "Seeds and selects demo card for KMP flow",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                        checked = editedUseMockedCredentials,
-                        onCheckedChange = { editedUseMockedCredentials = it }
-                )
             }
         }
     }

@@ -107,7 +107,14 @@ fun ChatScreen(viewModel: ChatViewModel, onSettingsClicked: () -> Unit) {
                             }
                         },
                         actions = {
-                            IconButton(onClick = { viewModel.triggerDebugCheckout() }) {
+                            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                            IconButton(
+                                    onClick = {
+                                        viewModel.triggerDebugCheckout { uri ->
+                                            uriHandler.openUri(uri)
+                                        }
+                                    }
+                            ) {
                                 Icon(
                                         imageVector = Icons.Default.Build,
                                         contentDescription = "Debug Checkout"

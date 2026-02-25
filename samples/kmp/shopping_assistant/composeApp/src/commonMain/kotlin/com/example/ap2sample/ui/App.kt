@@ -41,15 +41,11 @@ fun App(viewModel: ChatViewModel) {
                 "settings" ->
                         SettingsScreen(
                                 agentCardUrl = agentCardUrl,
-                                useAndroidCredentialManager =
-                                        viewModel.useAndroidCredentialManager.collectAsState()
-                                                .value,
-                                useMockedCredentials =
-                                        viewModel.useMockedCredentials.collectAsState().value,
-                                onDoneClicked = { newUrl, useAndroid, useMock ->
+                                dpcCheckoutMethod =
+                                        viewModel.dpcCheckoutMethod.collectAsState().value,
+                                onDoneClicked = { newUrl, newMethod ->
                                     viewModel.setAgentCardUrl(newUrl)
-                                    viewModel.setUseAndroidCredentialManager(useAndroid)
-                                    viewModel.setUseMockedCredentials(useMock)
+                                    viewModel.setDpcCheckoutMethod(newMethod)
                                     currentScreen = "chat"
                                 },
                         )
